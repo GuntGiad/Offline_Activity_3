@@ -1,0 +1,221 @@
+---
+title: "OAIII"
+format: html
+editor: visual
+---
+
+# Module III offline activity
+
+The task: question-guided learning of factor analysis. Use your favorite literature programming tools (i.e. Rmarkdown/Jupyter Notebook) to investigate the topic of factor analysis. Answer the questions below.
+
+**Q1: What is factor analysis**
+
+Written answer: Factor Analysis is a statistical method of data reduction that explains the correlations among many variables in terms of a smaller number of factors.
+
+For simplicity I will use a dataset we worked with during my first lecture usinf R called mtcars. It's made up of 11 numeric variables with 32 observations.
+
+```{r}
+data(mtcars)
+str(mtcars)
+```
+
+The variables are: **mpg**: Miles per gallon, **cyl**: Number of cylinders, **disp**: Engine displacement (cubic inches), **hp**: Gross horsepower, **drat**: Rear axle ratiom, **wt**: Weight (1000 lbs), **qsec**: 1/4 mile time (seconds), **vs**: Engine type (0 = V-shaped, 1 = Straight), **am**: Transmission (0 = Automatic, 1 = Manual), **gear**: Number of forward gears, **carb**: Number of carburetors.
+
+```{r}
+fit <- princomp(mtcars, cor = TRUE)
+summary(fit)
+plot(fit, type="lines")
+```
+
+The plot shows that two factors are enough to explain the data, let's test it using the package psych.
+
+```{r}
+#install.packages("psych")
+library(psych)
+fa <- fa(r = mtcars, nfactors=2, rotate= "varimax")
+summary(fa)
+```
+
+```{r}
+data(mtcars)
+factor_analysis <- factanal(mtcars, factors=2, rotation = "varimax")
+print(factor_analysis)
+```
+
+**Q2: What are the relationships between covariance matrix, factor analysis, and principal component analysis (PCA)?**
+
+All three are data reduction techniques:
+
+covariance matrix -\> used to check the relationship between variables in a dataset.
+
+factor analysis -\> Factor Analysis is a statistical method of data reduction that explains the correlations among many variables in terms of a smaller number of factors.
+
+PCA -\> finds linear combinations of the original features that represent as much of the variance in the original data set as possible.
+
+```{r}
+
+# Calculate the covariance matrix
+cov_matrix <- cov(mtcars)
+print("Covariance Matrix:")
+print(cov_matrix)
+
+# Perform PCA
+pca_result <- prcomp(mtcars, scale. = TRUE)
+print(summary(pca_result))
+
+# Perform Factor Analysis
+fa_result <- fa(mtcars, nfactors = 2, rotate = "varimax") 
+print(fa_result)
+
+# Plot PCA results
+plot(pca_result, type = "lines", main = "Scree Plot for PCA")
+
+# Plot Factor Analysis results
+fa.diagram(fa_result)
+```
+
+```{r}
+pcaCars <- princomp(mtcars, cor = TRUE)
+carsHC <- hclust(dist(pcaCars$scores), method = "ward.D2")
+carsClusters <- cutree(carsHC, k = 3)
+carsDf <- data.frame(pcaCars$scores, "cluster" = factor(carsClusters))
+str(carsDf)
+
+```
+
+```{r}
+#install.packages(c("ggplot2","ggrepel"))
+library(ggplot2)
+library(ggrepel)
+ggplot(carsDf,aes(x=Comp.1, y=Comp.2)) +
+  geom_text_repel(aes(label = rownames(carsDf))) +
+  theme_classic() +
+  geom_hline(yintercept = 0, color = "gray70") +
+  geom_vline(xintercept = 0, color = "gray70") +
+  geom_point(aes(color = cluster), alpha = 0.55, size = 3) +
+  xlab("PC1") +
+  ylab("PC2") + 
+  xlim(-5, 6) + 
+  ggtitle("PCA plot of Cars")
+```
+
+**3.** what do we mean with loadings?
+
+Loadings are crucial for understanding how the original variables relate to the underlying factors or components, they relate the original variables to the factors (in factor analysis) or the principal components (in PCA).
+
+```{r}
+pca_loadings <- pca_result$rotation
+print(pca_loadings)
+
+fa_loadings <- fa_result$loadings
+print(fa_loadings)
+
+```
+
+**4.** Why are factors orthogonal to each other? What’s the consequence?
+
+In factor analysis rotations rotations that assume the factors are not correlated are called orthogonal rotations. If the factors are correlated rotations that allow for correlation (called oblique rotation) should be used.
+
+```{r}
+#install.packages("GPArotation")
+library(GPArotation)
+#orthogonal -> not correlated
+fa_orthogonal <- fa(mtcars, nfactors = 2, rotate = "varimax")
+
+print(fa_orthogonal)
+
+```
+
+```{r}
+# oblique -> correlated
+fa_oblique <- fa(mtcars, nfactors = 2, rotate = "promax")
+
+print(fa_oblique)
+
+#there seems to be correlation
+```
+
+5\. Why can factor analysis be used as a generative model?
+
+A generative model aims to understand what makes the data different and be able to generate new data point based on that.
+
+The ability to generate data is why factor analysis can be considered a generative model.
+
+```{r}
+# Extract factor loadings and factor scores
+loadings <- fa_result$loadings
+scores <- fa_result$scores
+
+# Generate synthetic data
+synthetic_data <- scores %*% t(loadings)
+
+# Print the synthetic data
+print(synthetic_data)
+```
+
+**Q6:** What is the relationship between factor analysis and autoencoder?
+
+An autoencoder is a neural network that compresses the input into a lower-dimensional representation (encoding) and a decoder network that reconstructs the input from this encoding.
+
+The two techniques transform the data in a lower-dimensional space. Only the autoencoder can then reconstructs the input from this encoding.
+
+```{r}
+# Install necessary packages if not already installed
+if (!require("keras")) install.packages("keras")
+if (!require("tensorflow")) install.packages("tensorflow")
+
+# Load necessary libraries
+library(keras)
+library(tensorflow)
+
+# Install and load TensorFlow
+install_tensorflow()
+
+# Load the mtcars dataset
+data(mtcars)
+
+# Normalize the data
+mtcars_scaled <- scale(mtcars)
+
+# Define the dimensions
+input_dim <- ncol(mtcars)
+latent_dim <- 2
+
+# Define the encoder
+encoder <- keras_model_sequential() %>%
+  layer_dense(units = 8, activation = "relu", input_shape = input_dim) %>%
+  layer_dense(units = latent_dim, activation = "relu")
+
+# Define the decoder
+decoder <- keras_model_sequential() %>%
+  layer_dense(units = 8, activation = "relu", input_shape = latent_dim) %>%
+  layer_dense(units = input_dim, activation = "linear")
+
+# Combine encoder and decoder into an autoencoder
+autoencoder_input <- layer_input(shape = input_dim)
+autoencoder_output <- decoder(encoder(autoencoder_input))
+autoencoder <- keras_model(inputs = autoencoder_input, outputs = autoencoder_output)
+
+# Compile the autoencoder
+autoencoder %>% compile(optimizer = "adam", loss = "mse")
+
+# Train the autoencoder
+history <- autoencoder %>% fit(x = mtcars_scaled, y = mtcars_scaled, epochs = 50, batch_size = 8, validation_split = 0.2)
+
+# Extract the compressed representation (latent factors)
+latent_representation <- predict(encoder, mtcars_scaled)
+
+# Print the latent representation
+print(latent_representation)
+
+```
+
+Q7: how would you explain factor analysis to a high-school student?
+
+I think many high-school students could understand factor analysis in it's full details better than me but to make an example maybe more suited for middle school:
+
+In a grocery store, every product has characteristics, like price, weight, category, and brand. There are also other factor more hard to define like healthiness or popularity due to a craze. Factor analysis helps to uncover these hidden factors by looking at the attributes of the snacks. Factors like healthiness can then alone explain if a snack is low-calorie, organic, and comes from a health-focused brand.
+
+------------------------------------------------------------------------
+
+##For transparency many websites and chatGTP were used to help answer the questions.##
